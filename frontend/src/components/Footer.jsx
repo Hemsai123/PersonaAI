@@ -1,0 +1,43 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Twitter, Facebook, Instagram, Linkedin } from 'lucide-react';
+const Footer = () => {
+    return (React.createElement("footer", { className: "bg-gray-100 dark:bg-gray-800" },
+        React.createElement("div", { className: "max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8" },
+            React.createElement("div", { className: "grid grid-cols-1 md:grid-cols-4 gap-8" },
+                React.createElement("div", { className: "col-span-1 md:col-span-2" },
+                    React.createElement(Link, { to: "/", className: "text-2xl font-bold text-indigo-600 dark:text-indigo-400" }, "Persona AI"),
+                    React.createElement("p", { className: "mt-2 text-sm text-gray-500 dark:text-gray-400" }, "Revolutionizing influencer engagement through AI-powered persona replication")),
+                React.createElement("div", null,
+                    React.createElement("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider" }, "Quick Links"),
+                    React.createElement("ul", { className: "mt-4 space-y-4" },
+                        React.createElement("li", null,
+                            React.createElement(Link, { to: "/", className: "text-base text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" }, "Home")),
+                        React.createElement("li", null,
+                            React.createElement(Link, { to: "/about", className: "text-base text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" }, "About")),
+                        React.createElement("li", null,
+                            React.createElement(Link, { to: "/pricing", className: "text-base text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" }, "Pricing")),
+                        React.createElement("li", null,
+                            React.createElement(Link, { to: "/contact", className: "text-base text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" }, "Contact")))),
+                React.createElement("div", null,
+                    React.createElement("h3", { className: "text-sm font-semibold text-gray-400 uppercase tracking-wider" }, "Follow Us"),
+                    React.createElement("div", { className: "mt-4 flex space-x-6" },
+                        React.createElement("a", { href: "#", className: "text-gray-400 hover:text-gray-500 dark:hover:text-gray-300" },
+                            React.createElement("span", { className: "sr-only" }, "Twitter"),
+                            React.createElement(Twitter, { className: "h-6 w-6" })),
+                        React.createElement("a", { href: "#", className: "text-gray-400 hover:text-gray-500 dark:hover:text-gray-300" },
+                            React.createElement("span", { className: "sr-only" }, "Facebook"),
+                            React.createElement(Facebook, { className: "h-6 w-6" })),
+                        React.createElement("a", { href: "#", className: "text-gray-400 hover:text-gray-500 dark:hover:text-gray-300" },
+                            React.createElement("span", { className: "sr-only" }, "Instagram"),
+                            React.createElement(Instagram, { className: "h-6 w-6" })),
+                        React.createElement("a", { href: "#", className: "text-gray-400 hover:text-gray-500 dark:hover:text-gray-300" },
+                            React.createElement("span", { className: "sr-only" }, "LinkedIn"),
+                            React.createElement(Linkedin, { className: "h-6 w-6" }))))),
+            React.createElement("div", { className: "mt-8 border-t border-gray-200 dark:border-gray-700 pt-8 md:flex md:items-center md:justify-between" },
+                React.createElement("div", { className: "flex space-x-6 md:order-2" },
+                    React.createElement("a", { href: "#", className: "text-gray-400 hover:text-gray-500 dark:hover:text-gray-300" }, "Privacy Policy"),
+                    React.createElement("a", { href: "#", className: "text-gray-400 hover:text-gray-500 dark:hover:text-gray-300" }, "Terms of Service")),
+                React.createElement("p", { className: "mt-8 text-base text-gray-400 md:mt-0 md:order-1" }, "\u00A9 2025 Persona AI. All rights reserved.")))));
+};
+export default Footer;

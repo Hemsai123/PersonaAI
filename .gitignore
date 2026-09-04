@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+venv
+__pycache__
+
+# Build outputs
+dist
+dist-ssr
+*.local
+
+# Environment variables
+.env
+.env.*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Backend
+backend/db.sqlite3
+backend/media
+backend/static
+
+# Python
+*.pyc
+
+# OS
+Thumbs.db
