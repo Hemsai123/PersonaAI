@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { API_BASE_URL as API_BASE } from "../config";
 /**
  * CreativeHelper.tsx (Web keywords + HeyGen-ready)
@@ -12,6 +14,7 @@ const clamp = (n, min = 0, max = 100) => Math.max(min, Math.min(max, n));
 const fmtPct = (n) => (typeof n === "number" ? `${clamp(Math.round(n))}%` : "—");
 // ---------- The Page Component ----------
 export default function CreativeHelper() {
+    const navigate = useNavigate();
     const [prompt, setPrompt] = useState("");
     const [provider, setProvider] = useState("web"); // default to WEB keywords
     const [aspectRatio, setAspectRatio] = useState("16:9");
@@ -120,6 +123,9 @@ export default function CreativeHelper() {
     const isRunning = status?.status === "queued" || status?.status === "running";
     return (React.createElement("div", { className: "min-h-screen bg-neutral-950 text-neutral-100 px-4 sm:px-6 lg:px-8 py-8" },
         React.createElement("div", { className: "mx-auto max-w-5xl" },
+            React.createElement("button", { onClick: () => navigate(-1), className: "inline-flex items-center gap-2 text-neutral-400 hover:text-white mb-6 transition-colors font-medium text-sm" },
+                React.createElement(ArrowLeft, { className: "w-5 h-5" }),
+                React.createElement("span", null, "Back")),
             React.createElement("header", { className: "mb-6 flex items-start justify-between gap-4" },
                 React.createElement("div", null,
                     React.createElement("h1", { className: "text-2xl sm:text-3xl font-semibold tracking-tight" }, "Creative Helper"),

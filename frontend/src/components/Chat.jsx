@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, ArrowLeft, Volume2, Loader2, Mic, MicOff, Rocket, Copy, Check, X, ExternalLink, MessageSquare, Plus, Trash2 } from "lucide-react";
+import { Send, ArrowLeft, AlignCenter, Volume2, Loader2, Mic, MicOff, Rocket, Copy, Check, X, ExternalLink, MessageSquare, Plus, Trash2 } from "lucide-react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { generateChatResponse, ChatError } from "../services/groq";
 import { TextToSpeech } from "../utils/textToSpeech";
@@ -46,6 +46,7 @@ export const Chat = () => {
     const messagesContainerRef = useRef(null);
     const textareaRef = useRef(null);
     const ttsRef = useRef(null);
+    const sessionCreatedRef = useRef(false);
     // Title from personaPrompt
     const personaTitle = useMemo(() => {
         const activeSession = sessions.find(s => s.id === activeSessionId);
@@ -94,6 +95,7 @@ export const Chat = () => {
             setMessages((data.messages || []).map((m) => ({ role: m.role, content: m.content })));
             setSearchParams({ session: String(data.session.id) }, { replace: true });
             setError(null);
+            window.scrollTo({ top: 0, behavior: "smooth" });
         }
         catch (err) {
             setError(err instanceof Error ? err.message : "Could not load chat session");
@@ -198,7 +200,9 @@ export const Chat = () => {
             try {
                 const sessionIdFromUrl = searchParams.get("session");
                 console.log("[Chat] Booting... URL session:", sessionIdFromUrl, "State prompt:", !!initialPersonaPrompt);
-                if (initialPersonaPrompt) {
+                if (initialPersonaPrompt && !sessionCreatedRef.current) {
+                    sessionCreatedRef.current = true;
+                    window.history.replaceState({}, document.title);
                     console.log("[Chat] Initializing new session for:", initialPersonaName || "Persona");
                     await createSession(initialPersonaPrompt, initialPersonaName || personaTitle);
                     return;
@@ -338,7 +342,7 @@ export const Chat = () => {
     useEffect(() => {
         const container = messagesContainerRef.current;
         if (container) {
-            container.scrollTop = container.scrollHeight;
+            container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
         }
     }, [messages]);
     // Cleanup TTS
@@ -523,20 +527,23 @@ export const Chat = () => {
         }
         catch { }
     };
-    return (React.createElement("div", { className: "min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900" },
-        React.createElement("div", { className: "shadow-sm border-b border-gray-200/70 dark:border-gray-800/70 bg-white dark:bg-gray-900" },
-            React.createElement("div", { className: "max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-3" },
+    return (React.createElement("div", { className: "min-h-[calc(100vh-64px)] flex flex-col bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900" },
+        React.createElement("div", { className: "shrink-0 shadow-sm border-b border-gray-200/70 dark:border-gray-800/70 bg-white dark:bg-gray-900" },
+            React.createElement("div", { className: "max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3" },
                 React.createElement("button", { onClick: () => navigate("/profile"), className: "inline-flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" },
                     React.createElement(ArrowLeft, { className: "w-5 h-5" }),
                     React.createElement("span", { className: "font-medium" }, "Back")),
                 React.createElement("div", { className: "flex-1 min-w-0 text-center" },
-                    React.createElement("div", { className: "inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white" },
-                        React.createElement("div", { className: "w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold" }, "AI"),
+                    React.createElement("div", { className: "inline-flex items-center gap-3 px-4 py-1.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 text-white" },
+                        React.createElement("div", { className: "w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-semibold" }, "AI"),
                         React.createElement("div", { className: "text-left" },
-                            React.createElement("div", { className: "text-sm font-semibold truncate max-w-[48ch]" }, personaTitle),
-                            React.createElement("div", { className: "text-[11px] opacity-90" }, "Persona chat")))),
+                            React.createElement("div", { className: "text-xs font-semibold truncate max-w-[48ch]" }, personaTitle),
+                            React.createElement("div", { className: "text-[10px] opacity-90" }, "Persona chat")))),
                 React.createElement("div", { className: "flex items-center gap-2" },
-                    React.createElement("button", { onClick: () => { setShowDeploy(true); setDeployName(personaTitle); }, className: "inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-2 text-xs font-semibold text-white shadow transition hover:shadow-md", title: "Deploy & get shareable link" },
+                    React.createElement("button", { onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }), className: "inline-flex items-center gap-1.5 rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 shadow-sm transition hover:bg-blue-100 dark:hover:bg-blue-900/60", title: "Center chat UI in view" },
+                        React.createElement(AlignCenter, { className: "h-3.5 w-3.5" }),
+                        React.createElement("span", { className: "hidden sm:inline" }, "Center")),
+                    React.createElement("button", { onClick: () => { setShowDeploy(true); setDeployName(personaTitle); }, className: "inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:shadow-md", title: "Deploy & get shareable link" },
                         React.createElement(Rocket, { className: "h-3.5 w-3.5" }),
                         React.createElement("span", { className: "hidden sm:inline" }, "Deploy")),
                     React.createElement(VoiceSettings, { voiceMode: voiceMode, isPlaying: isPlaying, selectedVoice: selectedVoice, onVoiceModeToggle: toggleVoiceMode, onPlayPauseToggle: togglePlayPause, onVoiceChange: handleVoiceChange })))),
@@ -578,15 +585,15 @@ export const Chat = () => {
                         React.createElement(ExternalLink, { className: "h-3.5 w-3.5" }),
                         " Open Link"),
                     React.createElement("button", { onClick: () => { setShowDeploy(false); setDeployedSlug(null); }, className: "flex-1 rounded-xl bg-gray-900 py-2 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-gray-700" }, "Done")))))))),
-        React.createElement("div", { className: "max-w-6xl mx-auto px-4 py-6 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]" },
-            React.createElement("aside", { className: "rounded-3xl border border-gray-200/70 bg-white p-4 shadow dark:border-gray-800 dark:bg-gray-900" },
-                React.createElement("div", { className: "flex items-center justify-between gap-2" },
+        React.createElement("div", { className: "flex-1 max-w-6xl mx-auto w-full px-4 py-4 grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]" },
+            React.createElement("aside", { className: "flex flex-col rounded-3xl border border-gray-200/70 bg-white p-4 shadow dark:border-gray-800 dark:bg-gray-900 h-fit lg:h-[75vh]" },
+                React.createElement("div", { className: "shrink-0 flex items-center justify-between gap-2" },
                     React.createElement("div", { className: "flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white" },
                         React.createElement(MessageSquare, { className: "h-4 w-4" }),
                         "Sessions"),
                     React.createElement("button", { onClick: () => navigate("/profile"), className: "inline-flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-700", title: "Create a new persona chat", "aria-label": "Create a new persona chat" },
                         React.createElement(Plus, { className: "h-4 w-4" }))),
-                React.createElement("div", { className: "mt-3 max-h-[68vh] space-y-2 overflow-y-auto pr-1" }, isSessionLoading && sessions.length === 0 ? (React.createElement("div", { className: "flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400" },
+                React.createElement("div", { className: "mt-3 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1" }, isSessionLoading && sessions.length === 0 ? (React.createElement("div", { className: "flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400" },
                     React.createElement(Loader2, { className: "h-3.5 w-3.5 animate-spin" }),
                     "Loading chats")) : sessions.length === 0 ? (React.createElement("p", { className: "rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400" }, "Saved chats will appear here.")) : (sessions.map((session) => (React.createElement("div", { key: session.id, className: "group relative" },
                     React.createElement("button", { onClick: () => loadSession(session.id), className: [
@@ -607,8 +614,8 @@ export const Chat = () => {
                             activeSessionId === session.id ? "text-white/60" : "text-gray-400"
                         ].join(" ") },
                         React.createElement(Trash2, { className: "h-3.5 w-3.5" })))))))),
-            React.createElement(motion.div, { variants: cardVariant, initial: "hidden", animate: "show", className: "rounded-3xl overflow-hidden border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 shadow" },
-                React.createElement("div", { ref: messagesContainerRef, className: "h-[70vh] overflow-y-auto p-5 sm:p-6 space-y-4" },
+            React.createElement(motion.div, { variants: cardVariant, initial: "hidden", animate: "show", className: "flex flex-col rounded-3xl overflow-hidden border border-gray-200/70 dark:border-gray-800 bg-white dark:bg-gray-900 shadow h-[75vh]" },
+                React.createElement("div", { ref: messagesContainerRef, className: "flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4" },
                     isSessionLoading && (React.createElement("div", { className: "h-full flex flex-col items-center justify-center text-center text-gray-500 dark:text-gray-400" },
                         React.createElement(Loader2, { className: "mb-3 h-6 w-6 animate-spin text-indigo-500" }),
                         React.createElement("div", { className: "font-medium" }, "Loading saved chat"))),

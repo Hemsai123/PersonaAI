@@ -3,10 +3,18 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from pathlib import Path
+from dotenv import load_dotenv
 import json
 import requests
 import os
 import random
+import time
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+load_dotenv(BASE_DIR / '.env')
+load_dotenv(BASE_DIR.parent / '.env')
+load_dotenv()
 
 @require_http_methods(['GET'])
 def health(request):
@@ -20,8 +28,8 @@ def health(request):
 
 @require_http_methods(['GET'])
 def ping(request):
-    groq_ready = bool(os.getenv('GROQ_API_KEY'))
-    return JsonResponse({'ok': True, 'at': int(timezone.now().timestamp() * 1000), 'groqReady': groq_ready})
+    ai_ready = bool(os.getenv('GROQ_API_KEY') or os.getenv('GEMINI_API_KEY'))
+    return JsonResponse({'ok': True, 'at': int(timezone.now().timestamp() * 1000), 'groqReady': ai_ready, 'aiReady': ai_ready})
 
 @csrf_exempt
 @require_http_methods(['POST'])
@@ -31,69 +39,218 @@ def ask(request):
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
-    prompt = data.get('prompt', '')
-    messages = data.get('messages', [])
+    # Safely extract prompt and messages whether data is a dict or list
+    if isinstance(data, dict):
+        prompt = data.get('prompt', '')
+        messages = data.get('messages', [])
+    elif isinstance(data, list):
+        prompt = ''
+        messages = data
+    else:
+        prompt = ''
+        messages = []
 
     if not prompt and not messages:
         return JsonResponse({'error': 'No prompt or messages provided'}, status=400)
 
-    groq_api_key = os.getenv('GROQ_API_KEY')
-    if not groq_api_key:
-        return JsonResponse({'error': 'Groq API key not configured on server'}, status=500)
+    # Support either GEMINI_API_KEY or GROQ_API_KEY
+    gemini_key = os.getenv('GEMINI_API_KEY', '').strip()
+    groq_key = os.getenv('GROQ_API_KEY', '').strip()
 
-    groq_messages = messages or [
+    # Auto-detect if user placed a Google Gemini key (starts with 'AQ.' or 'AIza') in GROQ_API_KEY
+    if not gemini_key and (groq_key.startswith('AQ.') or groq_key.startswith('AIza')):
+        gemini_key = groq_key
+        groq_key = ''
+
+    # Filter out placeholder strings
+    if groq_key in ['gsk_your_groq_api_key_here', 'your_groq_api_key_here']:
+        groq_key = ''
+    if gemini_key in ['your_gemini_api_key_here', 'AIza_your_key']:
+        gemini_key = ''
+
+    if not gemini_key and not groq_key:
+        return JsonResponse({
+            'error': 'No AI API key configured on server. Please set GEMINI_API_KEY or GROQ_API_KEY in backend/.env'
+        }, status=500)
+
+    ai_messages = messages or [
         {'role': 'system', 'content': 'You are a decision helper. Respond clearly and logically.'},
         {'role': 'user', 'content': prompt},
     ]
 
-    groq_model = os.getenv('GROQ_MODEL')
-    fallback_model = os.getenv('GROQ_FALLBACK_MODEL')
-    MODELS = [m for m in [groq_model, fallback_model] if m]
-    if not MODELS:
-        MODELS = ['compound-beta']
+    # Configure providers list with automatic fallback
+    providers = []
+
+    # Configure Groq provider (fast, 14,400 free req/day)
+    if groq_key:
+        groq_model = os.getenv('GROQ_MODEL') or 'qwen/qwen3.8-27b'
+        fallback_model = os.getenv('GROQ_FALLBACK_MODEL') or 'openai/gpt-oss-120b'
+        raw_g_models = [
+            groq_model,
+            fallback_model,
+            'qwen/qwen3.8-27b',
+            'openai/gpt-oss-120b',
+            'openai/gpt-oss-20b',
+            'allam-2-7b',
+        ]
+        seen_g = set()
+        g_models = [m for m in raw_g_models if m and not (m in seen_g or seen_g.add(m))]
+        providers.append({
+            'name': 'Groq',
+            'endpoint': 'https://api.groq.com/openai/v1/chat/completions',
+            'headers': {
+                'Authorization': f'Bearer {groq_key}',
+                'Content-Type': 'application/json',
+            },
+            'models': g_models
+        })
+
+    # Configure Gemini provider
+    if gemini_key:
+        providers.append({
+            'name': 'Gemini',
+            'endpoint': 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+            'headers': {
+                'Authorization': f'Bearer {gemini_key}',
+                'x-goog-api-key': gemini_key,
+                'Content-Type': 'application/json',
+            },
+            'models': [os.getenv('GEMINI_MODEL') or 'gemini-3.8-flash', 'gemini-3.8-flash']
+        })
+
     last_error = None
     last_status = 500
 
-    for model in MODELS:
-        try:
-            r = requests.post(
-                'https://api.groq.com/openai/v1/chat/completions',
-                headers={
-                    'Authorization': f'Bearer {groq_api_key}',
-                    'Content-Type': 'application/json',
-                },
-                json={
-                    'model': model,
-                    'messages': groq_messages,
-                    'temperature': 0.4,
-                    'max_tokens': 1024,
-                },
-                timeout=30,
-            )
+    for provider in providers:
+        provider_name = provider['name']
+        endpoint = provider['endpoint']
+        headers = provider['headers']
+        seen = set()
+        MODELS = [m for m in provider['models'] if m and not (m in seen or seen.add(m))]
 
-            if not r.ok:
-                error_body = {}
+        for model in MODELS:
+            for attempt in range(2):
                 try:
-                    error_body = r.json()
-                except Exception:
-                    pass
-                err = Exception(f"Groq API error {r.status_code}: {error_body.get('error', {}).get('message', r.text)}")
-                err.status_code = r.status_code
-                raise err
+                    print(f"[AI Engine] Calling {provider_name} with model: {model} (attempt {attempt + 1})...")
+                    r = requests.post(
+                        endpoint,
+                        headers=headers,
+                        json={
+                            'model': model,
+                            'messages': ai_messages,
+                            'temperature': 0.4,
+                            'max_tokens': 1024,
+                        },
+                        timeout=12,
+                    )
 
-            resp = r.json()
-            answer = resp.get('choices', [{}])[0].get('message', {}).get('content', '')
-            if not answer:
-                raise Exception('Empty response from model')
+                    if not r.ok:
+                        error_body = None
+                        try:
+                            error_body = r.json()
+                        except Exception:
+                            error_body = None
 
-            return JsonResponse({'answer': answer, 'model': model})
-        except Exception as e:
-            last_error = e
-            last_status = getattr(e, 'status_code', None) or getattr(e, 'status', None) or 500
-            if last_status not in [413, 429, 500, 503]:
-                break
+                        err_text = ''
+                        if isinstance(error_body, dict):
+                            err_val = error_body.get('error')
+                            if isinstance(err_val, dict):
+                                err_text = err_val.get('message', '')
+                            elif isinstance(err_val, str):
+                                err_text = err_val
+                            if not err_text:
+                                err_text = error_body.get('message', '')
+                        elif isinstance(error_body, list) and len(error_body) > 0:
+                            first = error_body[0]
+                            if isinstance(first, dict):
+                                err_val = first.get('error')
+                            if isinstance(err_val, dict):
+                                err_text = err_val.get('message', '')
+                            elif isinstance(err_val, str):
+                                err_text = err_val
+                            if not err_text:
+                                err_text = first.get('message', '')
+                        elif isinstance(first, str):
+                            err_text = first
+
+                        if not err_text:
+                            err_text = r.text or f"HTTP {r.status_code}"
+
+                        # If 404 (model deprecated or not found on provider), immediately skip to next model
+                        if r.status_code == 404:
+                            print(f"[AI Engine] Model '{model}' not found on {provider_name} (404), skipping...")
+                            err = Exception(f"{provider_name} model {model} not found (404).")
+                            err.status_code = 404
+                            raise err
+
+                        # If temporary 503 (high demand spike), automatically retry with backoff
+                        if r.status_code == 503 and attempt < 1:
+                            time.sleep(1.5 * (attempt + 1))
+                            continue
+
+                        # If quota exceeded (429), break out immediately to try fallback provider
+                        if r.status_code == 429 and 'Quota exceeded' in err_text:
+                            err = Exception(f"{provider_name} quota exceeded (daily free limit reached). {err_text}")
+                            err.status_code = 429
+                            raise err
+
+                        err = Exception(f"{provider_name} API error {r.status_code}: {err_text}")
+                        err.status_code = r.status_code
+                        raise err
+
+                    resp = r.json()
+                    answer = ''
+                    if isinstance(resp, dict):
+                        choices = resp.get('choices')
+                        if isinstance(choices, list) and len(choices) > 0 and isinstance(choices[0], dict):
+                            msg = choices[0].get('message')
+                            if isinstance(msg, dict):
+                                answer = msg.get('content', '')
+                        if not answer:
+                            candidates = resp.get('candidates')
+                            if isinstance(candidates, list) and len(candidates) > 0 and isinstance(candidates[0], dict):
+                                content_obj = candidates[0].get('content')
+                                if isinstance(content_obj, dict):
+                                    parts = content_obj.get('parts')
+                                    if isinstance(parts, list) and len(parts) > 0 and isinstance(parts[0], dict):
+                                        answer = parts[0].get('text', '')
+                    elif isinstance(resp, list) and len(resp) > 0 and isinstance(resp[0], dict):
+                        choices = resp[0].get('choices')
+                        if isinstance(choices, list) and len(choices) > 0 and isinstance(choices[0], dict):
+                            msg = choices[0].get('message')
+                            if isinstance(msg, dict):
+                                answer = msg.get('content', '')
+                        if not answer:
+                            candidates = resp[0].get('candidates')
+                            if isinstance(candidates, list) and len(candidates) > 0 and isinstance(candidates[0], dict):
+                                content_obj = candidates[0].get('content')
+                                if isinstance(content_obj, dict):
+                                    parts = content_obj.get('parts')
+                                    if isinstance(parts, list) and len(parts) > 0 and isinstance(parts[0], dict):
+                                        answer = parts[0].get('text', '')
+
+                    if not answer:
+                        raise Exception('Empty response from model')
+
+                    print(f"[AI Engine] Successfully generated response with {provider_name} ({model})")
+                    return JsonResponse({'answer': answer, 'model': model, 'provider': provider_name})
+                except Exception as e:
+                    last_error = e
+                    last_status = getattr(e, 'status_code', None) or getattr(e, 'status', None) or 500
+                    if last_status == 503 and attempt < 1:
+                        time.sleep(1.5 * (attempt + 1))
+                        continue
+                    # Break attempt loop on 429/404/timeouts to move to next model or provider
+                    break
 
     error_msg = str(last_error) if last_error else 'Failed to get response from AI'
+    if last_status == 429 and ('quota' in error_msg.lower() or 'rate' in error_msg.lower()):
+        if not groq_key:
+            error_msg = (
+                "Google Gemini free daily limit (20 requests/day) reached. "
+                "To chat without limits, add a free Groq API key (GROQ_API_KEY) in backend/.env "
+                "(get key at https://console.groq.com/keys for 14,400 free requests/day with no waiting)."
+            )
     try:
         status_code = int(last_status) if isinstance(last_status, (int, str)) else 500
     except (TypeError, ValueError):
@@ -156,8 +313,13 @@ def memorial_video(request):
     return JsonResponse({'videoUrl': video_url, 'isEthereal': True, 'provider': 'iconic-walking'})
 
 @csrf_exempt
-@require_http_methods(['POST'])
+@require_http_methods(['POST', 'GET', 'DELETE'])
 def generate_video(request):
+    if request.method == 'GET':
+        return generate_video_status(request)
+    if request.method == 'DELETE':
+        return cancel_video(request)
+
     try:
         data = json.loads(request.body) if request.body else {}
     except json.JSONDecodeError:

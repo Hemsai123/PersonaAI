@@ -41,7 +41,10 @@ export const geocodeLandmark = async (name, cityName) => {
         // We append the city name for better accuracy and use addressdetails to verify city match
         const q = `${name}, ${cityName}`;
         const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}&addressdetails=1`;
-        const res = await axios.get(url, { headers: { 'User-Agent': 'PersonaAI/1.0' } });
+        const res = await axios.get(url, {
+            headers: { 'User-Agent': 'PersonaAI/1.0' },
+            timeout: 3500
+        });
         const data = res.data;
         if (Array.isArray(data) && data.length > 0) {
             // Try to find a result that explicitly matches the cityName in its address

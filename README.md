@@ -289,7 +289,7 @@ erDiagram
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/Hemsai123/PersonaAI.git
+git clone https://github.com/your-username/PersonaAI.git
 cd PersonaAI
 ```
 
@@ -478,7 +478,7 @@ Content-Type: application/json
     "name": "Ada Lovelace",
     "email": "ada@example.com"
   },
-  "token": "..."
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 

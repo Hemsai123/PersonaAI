@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, AlignCenter } from "lucide-react";
 import { generateChatResponse } from "../services/groq";
 const DecisionHelper = () => {
+    const navigate = useNavigate();
+    const containerRef = useRef(null);
     const [input, setInput] = useState("");
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -17,6 +21,16 @@ const DecisionHelper = () => {
     const finalRef = useRef(""); // accumulated final transcript only
     const lastSpokenId = useRef(null);
     const hasUserMessage = useMemo(() => messages.some((m) => m.role === "user"), [messages]);
+
+    const centerUI = () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: "instant" });
+    }, []);
+
     useEffect(() => {
         listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
     }, [messages, loading]);
@@ -166,61 +180,131 @@ const DecisionHelper = () => {
         const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
         return lastAssistant?.model ?? "Decision Helper AI";
     }, [messages]);
-    return (React.createElement("div", { className: "min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-gray-950 dark:to-gray-900 text-gray-900 dark:text-gray-50 flex flex-col" },
-        React.createElement("header", { className: "sticky top-0 z-10 border-b border-black/5 dark:border-white/10 bg-white/70 dark:bg-gray-950/60 backdrop-blur" },
-            React.createElement("div", { className: "max-w-4xl mx-auto px-4 py-3 flex items-center justify-between" },
-                React.createElement("div", { className: "flex items-center gap-2" },
-                    React.createElement("span", { className: "inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white font-semibold" }, "AI"),
-                    React.createElement("div", { className: "leading-tight" },
-                        React.createElement("div", { className: "font-semibold" }, "Decision Helper"),
-                        React.createElement("div", { className: "text-xs text-gray-500 dark:text-gray-400" }, headerModel))),
-                React.createElement("div", { className: "flex items-center gap-2" },
-                    React.createElement("select", { value: lang, onChange: (e) => setLang(e.target.value), className: "text-xs rounded-md border border-black/10 dark:border-white/10 bg-white dark:bg-gray-950 px-2 py-1", title: "Speech language" },
-                        React.createElement("option", { value: "en-IN" }, "English (India)"),
-                        React.createElement("option", { value: "en-US" }, "English (US)"),
-                        React.createElement("option", { value: "en-GB" }, "English (UK)"),
-                        React.createElement("option", { value: "hi-IN" }, "Hindi (India)"),
-                        React.createElement("option", { value: "te-IN" }, "Telugu (India)"),
-                        React.createElement("option", { value: "ta-IN" }, "Tamil (India)")),
-                    latencyMs != null && (React.createElement("span", { className: "text-xs px-2 py-1 rounded-md bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200" },
-                        latencyMs,
-                        " ms"))))),
-        !hasUserMessage && !loading && (React.createElement("div", { className: "max-w-4xl mx-auto px-4 pt-8 grid sm:grid-cols-2 gap-3" }, SUGGESTIONS.map((s) => (React.createElement("button", { key: s, onClick: () => send(s), className: "text-left rounded-2xl border border-black/5 dark:border-white/10 p-4 bg-white dark:bg-gray-950 hover:bg-blue-50/60 dark:hover:bg-blue-950/20 transition" }, s))))),
-        React.createElement("main", { className: "max-w-4xl mx-auto w-full px-4 flex-1" },
-            React.createElement("div", { ref: listRef, className: "w-full h-full max-h-[calc(100vh-300px)] overflow-y-auto pt-4" },
-                messages.map((m) => React.createElement(ChatBubble, { key: m.id, msg: m })),
-                loading && React.createElement(TypingBubble, null)),
-            err && (React.createElement("div", { className: "mt-3 text-sm rounded-xl border border-red-300/60 text-red-800 bg-red-50 p-3 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800/40" }, err))),
-        React.createElement("footer", { className: "w-full border-t border-black/5 dark:border-white/10" },
-            React.createElement("div", { className: "max-w-4xl mx-auto px-4 py-4" },
-                React.createElement("div", { className: "rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-gray-950 p-2" },
-                    React.createElement("div", { className: "flex items-start gap-2" },
-                        React.createElement("div", { className: "flex-1" },
-                            React.createElement("textarea", { className: "w-full resize-none bg-transparent outline-none p-3 rounded-xl min-h-[72px] max-h-[240px]", placeholder: "Speak or type your question\u2026 (Shift+Enter for new line)", value: input, onChange: (e) => setInput(e.target.value), onKeyDown: handleKeyDown }),
-                            !!interim && (React.createElement("div", { className: "px-3 pb-2 text-xs text-gray-500 dark:text-gray-400 italic" },
-                                "\uD83C\uDFA4 ",
-                                interim))),
-                        React.createElement("div", { className: "flex flex-col items-center gap-2 pr-2 pt-2" },
-                            React.createElement("button", { onClick: toggleMic, disabled: recogStatus === "unsupported", className: `flex items-center justify-center h-10 w-10 rounded-full border transition-all duration-200
-                    ${recogStatus === "listening"
-                                    ? "bg-red-600 text-white border-red-700 animate-pulse"
-                                    : "bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 border-black/10 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-gray-800"}`, title: recogStatus === "unsupported"
-                                    ? "Speech recognition not supported"
-                                    : recogStatus === "listening"
-                                        ? "Stop listening"
-                                        : "Start voice input" },
-                                React.createElement(MicIcon, { className: `h-5 w-5 ${recogStatus === "listening"
-                                        ? "fill-white"
-                                        : "fill-gray-600 dark:fill-gray-300"}` })),
-                            React.createElement("button", { onClick: () => send(), disabled: loading || !input.trim(), className: "text-sm px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60" }, loading ? "Thinking…" : "Send"),
-                            React.createElement("label", { className: "text-[11px] flex items-center gap-2 px-1" },
-                                React.createElement("input", { type: "checkbox", checked: autoSpeak, onChange: (e) => setAutoSpeak(e.target.checked) }),
-                                "Read aloud")))),
-                React.createElement("div", { className: "text-[11px] text-gray-500 dark:text-gray-400 mt-2" },
-                    recogStatus === "unsupported" && "Voice input not supported in this browser. Try Chrome/Edge.",
-                    recogStatus === "denied" && "Microphone permission denied. Enable microphone in browser settings.",
-                    recogStatus === "error" && "An error occurred with microphone. Try again.",
-                    recogStatus === "listening" && "Listening… speak now.")))));
+    return (
+        <div ref={containerRef} className="min-h-[calc(100vh-64px)] bg-gradient-to-b from-slate-50 to-slate-100 dark:from-gray-950 dark:to-gray-900 text-gray-900 dark:text-gray-50 flex flex-col justify-between">
+            <header className="sticky top-0 z-10 border-b border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-950/70 backdrop-blur">
+                <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => navigate(-1)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-gray-900 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                            title="Go back"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            <span>Back</span>
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white font-semibold text-xs">AI</span>
+                            <div className="leading-tight">
+                                <div className="font-semibold text-sm">Decision Helper</div>
+                                <div className="text-[11px] text-gray-500 dark:text-gray-400">{headerModel}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={centerUI}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition"
+                            title="Center chat UI in view"
+                        >
+                            <AlignCenter className="w-3.5 h-3.5" />
+                            <span>Center</span>
+                        </button>
+                        <select value={lang} onChange={(e) => setLang(e.target.value)} className="text-xs rounded-md border border-black/10 dark:border-white/10 bg-white dark:bg-gray-950 px-2 py-1" title="Speech language">
+                            <option value="en-IN">English (India)</option>
+                            <option value="en-US">English (US)</option>
+                            <option value="en-GB">English (UK)</option>
+                            <option value="hi-IN">Hindi (India)</option>
+                            <option value="te-IN">Telugu (India)</option>
+                            <option value="ta-IN">Tamil (India)</option>
+                        </select>
+                        {latencyMs != null && (
+                            <span className="text-xs px-2 py-1 rounded-md bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                {latencyMs} ms
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </header>
+
+            <main className="max-w-4xl mx-auto w-full px-4 flex-1 flex flex-col py-4">
+                {!hasUserMessage && !loading && (
+                    <div className="w-full pt-4 pb-2 grid sm:grid-cols-2 gap-3 shrink-0">
+                        {SUGGESTIONS.map((s) => (
+                            <button key={s} onClick={() => send(s)} className="text-left rounded-2xl border border-black/5 dark:border-white/10 p-4 bg-white dark:bg-gray-950 hover:bg-blue-50/60 dark:hover:bg-blue-950/20 transition shadow-sm">
+                                {s}
+                            </button>
+                        ))}
+                    </div>
+                )}
+                <div ref={listRef} className="w-full flex-1 overflow-y-auto py-2 space-y-3 min-h-[200px] max-h-[55vh] sm:max-h-[60vh]">
+                    {messages.map((m) => (
+                        <ChatBubble key={m.id} msg={m} />
+                    ))}
+                    {loading && <TypingBubble />}
+                </div>
+                {err && (
+                    <div className="my-2 text-sm rounded-xl border border-red-300/60 text-red-800 bg-red-50 p-3 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800/40 shrink-0">
+                        {err}
+                    </div>
+                )}
+            </main>
+
+            <div className="shrink-0 w-full border-t border-black/5 dark:border-white/10 bg-white/80 dark:bg-gray-950/80 backdrop-blur">
+                <div className="max-w-4xl mx-auto px-4 py-3">
+                    <div className="rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-gray-950 p-2 shadow-sm">
+                        <div className="flex items-start gap-2">
+                            <div className="flex-1">
+                                <textarea
+                                    className="w-full resize-none bg-transparent outline-none p-2.5 rounded-xl min-h-[60px] max-h-[160px] text-sm"
+                                    placeholder="Speak or type your question… (Shift+Enter for new line)"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                />
+                                {!!interim && (
+                                    <div className="px-3 pb-1 text-xs text-gray-500 dark:text-gray-400 italic">
+                                        🎤 {interim}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-col items-center gap-1.5 pr-2 pt-1">
+                                <button
+                                    onClick={toggleMic}
+                                    disabled={recogStatus === "unsupported"}
+                                    className={`flex items-center justify-center h-9 w-9 rounded-full border transition-all duration-200 ${
+                                        recogStatus === "listening"
+                                            ? "bg-red-600 text-white border-red-700 animate-pulse"
+                                            : "bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 border-black/10 dark:border-white/10 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                    }`}
+                                    title={recogStatus === "unsupported" ? "Speech recognition not supported" : recogStatus === "listening" ? "Stop listening" : "Start voice input"}
+                                >
+                                    <MicIcon className={`h-4 w-4 ${recogStatus === "listening" ? "fill-white" : "fill-gray-600 dark:fill-gray-300"}`} />
+                                </button>
+                                <button
+                                    onClick={() => send()}
+                                    disabled={loading || !input.trim()}
+                                    className="text-xs px-3.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 font-medium"
+                                >
+                                    {loading ? "…" : "Send"}
+                                </button>
+                                <label className="text-[10px] flex items-center gap-1 px-1 text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+                                    <input type="checkbox" checked={autoSpeak} onChange={(e) => setAutoSpeak(e.target.checked)} />
+                                    <span>Read aloud</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1.5 px-1">
+                        {recogStatus === "unsupported" && "Voice input not supported in this browser. Try Chrome/Edge."}
+                        {recogStatus === "denied" && "Microphone permission denied. Enable microphone in browser settings."}
+                        {recogStatus === "error" && "An error occurred with microphone. Try again."}
+                        {recogStatus === "listening" && "Listening… speak now."}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 /* -------- components & utils -------- */
 const ChatBubble = ({ msg }) => {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, BedDouble as HotelIcon, CalendarDays, Plus, Trash2, Route as RouteIcon, Utensils, Sun, Sunset, Moon, Minus, Navigation, } from 'lucide-react';
+import { ArrowLeft, MapPin, BedDouble as HotelIcon, CalendarDays, Plus, Trash2, Route as RouteIcon, Utensils, Sun, Sunset, Moon, Minus, Navigation, } from 'lucide-react';
 import PlaceAutocomplete from '../components/PlaceAutocomplete';
 import RouteMap from '../components/RouteMap';
 import { fetchPOIs, estimatePoiPrices } from '../services/poiService';
@@ -11,6 +11,7 @@ import { generateChatResponse } from '../services/groq';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-routing-machine/dist/leaflet-routing-machine.css';
 const TripPlanner = () => {
+    const navigate = useNavigate();
     const { state } = useLocation();
     const params = (state || {});
     const [origin, setOrigin] = useState(null);
@@ -70,15 +71,13 @@ const TripPlanner = () => {
                     return;
                 const cityName = dest.label.split(',')[0].trim();
                 setLoadingStatus(`Discovering ${cityName}...`);
-                // Run sequentially with aggressive delays to completely avoid Overpass & Groq API 429 Rate Limiting
-                const aiLandmarks = await identifyFamousLandmarks(dest.label).catch(() => []);
-                await new Promise(r => setTimeout(r, 1000));
-                const attractions = await fetchPOIs(dest.pos.lat, dest.pos.lng, 'attraction').catch(() => []);
-                await new Promise(r => setTimeout(r, 1000));
-                const hotels = await fetchPOIs(dest.pos.lat, dest.pos.lng, 'hotel').catch(() => []);
-                await new Promise(r => setTimeout(r, 1000));
-                const food = await fetchPOIs(dest.pos.lat, dest.pos.lng, 'food').catch(() => []);
-                await new Promise(r => setTimeout(r, 1500)); // Buffer before next stop
+                // Parallel discovery with built-in fallbacks and timeouts
+                const [aiLandmarks, attractions, hotels, food] = await Promise.all([
+                    identifyFamousLandmarks(dest.label).catch(() => []),
+                    fetchPOIs(dest.pos.lat, dest.pos.lng, 'attraction').catch(() => []),
+                    fetchPOIs(dest.pos.lat, dest.pos.lng, 'hotel').catch(() => []),
+                    fetchPOIs(dest.pos.lat, dest.pos.lng, 'food').catch(() => []),
+                ]);
                 // Tag each with a short, clean city name
                 const taggedHotels = hotels.map(h => ({ ...h, city: cityName }));
                 const taggedFood = food.map(f => ({ ...f, city: cityName }));
@@ -92,25 +91,25 @@ const TripPlanner = () => {
             if (myFetchId !== currentFetchId.current)
                 return;
             setLoadingStatus(`Pinpointing and photographing iconic spots...`);
-            const geocodedLandmarks = [];
-            for (const l of allAiLandmarks) {
-                if (myFetchId !== currentFetchId.current)
-                    return;
-                const [pos, img] = await Promise.all([
-                    geocodeLandmark(l.name, l.city),
-                    fetchLandmarkImage(l.name)
-                ]);
-                geocodedLandmarks.push({
-                    lat: pos?.lat || validDests[0]?.pos.lat || 0,
-                    lng: pos?.lng || validDests[0]?.pos.lng || 0,
-                    name: l.name,
-                    kind: 'attraction',
-                    description: l.description,
-                    image: img || undefined,
-                    rating: (Math.random() * 0.5 + 4.5).toFixed(1),
-                    city: l.city,
-                });
-            }
+            const landmarksToProcess = allAiLandmarks.slice(0, 8);
+            const geocodedLandmarks = await Promise.all(
+                landmarksToProcess.map(async (l) => {
+                    const [pos, img] = await Promise.all([
+                        geocodeLandmark(l.name, l.city).catch(() => null),
+                        fetchLandmarkImage(l.name).catch(() => null)
+                    ]);
+                    return {
+                        lat: pos?.lat || validDests[0]?.pos.lat || 0,
+                        lng: pos?.lng || validDests[0]?.pos.lng || 0,
+                        name: l.name,
+                        kind: 'attraction',
+                        description: l.description,
+                        image: img || undefined,
+                        rating: (Math.random() * 0.5 + 4.5).toFixed(1),
+                        city: l.city,
+                    };
+                })
+            );
             setLoadingStatus(`Gathering real-time market rates...`);
             const mainCity = allStops[0]?.label.split(',')[0].trim() || 'Trip';
             const [pricedHotels, pricedFood] = await Promise.all([
@@ -256,6 +255,9 @@ const TripPlanner = () => {
                 React.createElement(motion.h3, { animate: { opacity: [0.5, 1, 0.5] }, transition: { duration: 2, repeat: Infinity }, className: "text-2xl font-black mb-3 bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600" }, "Generating Persona Trip"),
                 React.createElement("p", { className: "text-gray-500 dark:text-gray-400 font-medium animate-pulse" }, loadingStatus || "Loading local secrets...")))),
         React.createElement("div", { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" },
+            React.createElement("button", { onClick: () => navigate(-1), className: "inline-flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 mb-6 transition-colors font-medium text-sm" },
+                React.createElement(ArrowLeft, { className: "w-5 h-5" }),
+                React.createElement("span", null, "Back")),
             React.createElement(motion.div, { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, className: "mb-6" },
                 React.createElement("h1", { className: "text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 flex items-center gap-3" },
                     React.createElement(RouteIcon, { className: "w-10 h-10" }),
